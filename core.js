@@ -38,7 +38,7 @@ window.onload = function() {
                 left:  {before: "left", right: "top", left: "bottom"}
             },
 
-            STEP_TIMEOUT: 50,
+            STEP_TIMEOUT: 500,
 
             NEIGHBOURS: {
                 top:    {chX: 0,  chY: -1, xOffset: 0,  yOffset: -1, xWall: 0, yWall: 0, wW: 1, wH: 0, tr: ""},

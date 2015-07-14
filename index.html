@@ -6,12 +6,55 @@
     <script type="application/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>
     <script type="application/javascript" src="core.js"></script>
     <script type="application/javascript" src="vpetlya.js"></script>
+    <style>
+        #map{
+            width: 300px;
+            height: 300px;
+            overflow: hidden;
+        }
+        .cell{
+            float: left;
+            width: 16px;
+            height: 16px;
+            background-color: #aaa;
+            border: 2px solid #aaa;
+        }
+
+        .top-wall{border-top-color: #000;}
+        .right-wall{border-right-color: #000;}
+        .left-wall{border-left-color: #000;}
+        .bottom-wall{border-bottom-color: #000;}
+
+        .top-barrier{border-top-color: #00f;}
+        .right-barrier{border-right-color: #00f;}
+        .left-barrier{border-left-color: #00f;}
+        .bottom-barrier{border-bottom-color: #00f;}
+
+        .top-space{border-top-color: #fff;}
+        .right-space{border-right-color: #fff;}
+        .left-space{border-left-color: #fff;}
+        .bottom-space{border-bottom-color: #fff;}
+
+        .space{
+            background-color: #fff;
+        }
+        .exit{
+            background-color: #f00;
+        }
+        .key{
+            background-color: #0f0;
+        }
+        .pos{
+            background-color: #ff0;
+        }
+    </style>
 </head>
 <body>
 <h1>JavaScript Challenge</h1>
 
 <table>
     <tr>
+        <td><div id="map"></div></td>
         <td><div id="maze"></div></td>
         <td>
             <h2>Table of results:</h2>
