@@ -4,8 +4,8 @@
  */
 
 algorithmHolder.putInstance(1, function () {
-	const TYPE_INDEX = {unknown: 0, wall: 1, space: 2, exit: 3, key: 4, barrier: 5};
-	const TYPE_VALUE = {0: 'unknown', 1: 'wall', 2: 'space', 3: 'exit', 4: 'key', 5: 'barrier'};
+	const TYPE_INDEX = {unknown: 0, wall: 1, space: 2, exit: 3, key: 4, barrier: 5, passable: 6};
+	const TYPE_VALUE = {0: 'unknown', 1: 'wall', 2: 'space', 3: 'exit', 4: 'key', 5: 'barrier', 6: 'passable'};
 	const DIRECTION = {
 		TOP: {dx: 0, dy: -1, forward: 'top', backward: 'bottom', right: "right", left: "left"},
 		RIGHT: {dx: 1, dy: 0, forward: 'right', backward: 'left', right: "bottom", left: "top"},
@@ -41,7 +41,7 @@ algorithmHolder.putInstance(1, function () {
 		var data = [];
 		var start = {x: width / 2 >> 0, y: height / 2 >> 0}
 
-		this.getData = function(){
+		this.getData = function () {
 			return data;
 		}
 
@@ -108,7 +108,7 @@ algorithmHolder.putInstance(1, function () {
 			if (typeof info.right != 'undefined') data[pos.x][pos.y].right = info.right;
 			if (typeof info.bottom != 'undefined') data[pos.x][pos.y].bottom = info.bottom;
 			if (typeof info.left != 'undefined') data[pos.x][pos.y].left = info.left;
-			if (typeof info.center != 'undefined') data[pos.x][pos.y].center = info.center;
+			if (typeof info.center != 'undefined' && data[pos.x][pos.y].center != TYPE_INDEX.space) data[pos.x][pos.y].center = info.center;
 		}
 
 		this.getCell = function (pos) {
@@ -122,7 +122,7 @@ algorithmHolder.putInstance(1, function () {
 				data[i][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown);
 			}
 		}
-		this.update({x: start.x, y: start.y}, {center: TYPE_INDEX.space});
+		this.update({x: start.x, y: start.y}, {center: TYPE_INDEX.passable});
 	}
 
 	var Position = function (x, y) {
@@ -159,7 +159,19 @@ algorithmHolder.putInstance(1, function () {
 		var queueCMD = [];
 		var api = null;
 
-		this.getMap = function() {
+		var behavior = {
+			discovery: function () {
+
+			},
+			going: function () {
+
+			},
+			wade: function () {
+
+			}
+		}
+
+		this.getMap = function () {
 			return map;
 		}
 
@@ -214,28 +226,31 @@ algorithmHolder.putInstance(1, function () {
 
 					info = {};
 					tmpPos = pos.movePos(dir.getDirection(dir.forward));
-					if (result.before != TYPE_VALUE['key']) {
-						info[dir.backward] = result.before;
+					if (result.before != 'key') {
+						info[dir.backward] = TYPE_INDEX[result.before];
+						if (result.before != 'wall') info['center'] = TYPE_INDEX[result.before];
 					} else {
-						info['center'] = result.before;
+						info['center'] = TYPE_INDEX[result.before];
 					}
 					map.update(tmpPos, info);
 
 					info = {};
 					tmpPos = pos.movePos(dir.getDirection(dir.right));
-					if (result.right != TYPE_VALUE['key']) {
-						info[dir.left] = result.right;
+					if (result.right != 'key') {
+						info[dir.left] = TYPE_INDEX[result.right];
+						if (result.right != 'wall') info['center'] = TYPE_INDEX[result.right];
 					} else {
-						info['center'] = result.right;
+						info['center'] = TYPE_INDEX[result.right];
 					}
 					map.update(tmpPos, info);
 
 					info = {};
 					tmpPos = pos.movePos(dir.getDirection(dir.left));
-					if (result.left != TYPE_VALUE['key']) {
-						info[dir.right] = result.left;
+					if (result.left != 'key') {
+						info[dir.right] = TYPE_INDEX[result.left];
+						if (result.left != 'wall') info['center'] = TYPE_INDEX[result.left];
 					} else {
-						info['center'] = result.left;
+						info['center'] = TYPE_INDEX[result.left];
 					}
 					map.update(tmpPos, info);
 					break;
@@ -251,10 +266,11 @@ algorithmHolder.putInstance(1, function () {
 						info[dir.forward] = TYPE_INDEX.space;
 						map.update(pos, info);
 						pos.toMove(dir);
-						info = {center: TYPE_INDEX.space};
+						info = {center: TYPE_INDEX.passable};
 						info[dir.backward] = TYPE_INDEX.space;
 						map.update(pos, info);
 					} else {
+						if (queueCMD.length > 0) queueCMD = [];
 						info = {};
 						info[dir.forward] = TYPE_INDEX.barrier;
 						map.update(pos, info);
@@ -268,13 +284,15 @@ algorithmHolder.putInstance(1, function () {
 		}
 
 		this.generateDecision = function () {
+			if (queueCMD.length > 0) return;
+
 			var cell = map.getCell(pos);
-			if(Math.random()<0.1){
+			if (Math.random() < 0.1) {
 				this.toScan();
-			}else if (cell[dir.forward] != TYPE_INDEX['wall'] && cell[dir.forward] != TYPE_INDEX['barrier']) {
+			} else if (cell[dir.forward] != TYPE_INDEX['wall'] && cell[dir.forward] != TYPE_INDEX['barrier']) {
 				this.toMove();
 			} else {
-				this.toRandomSide(1,1);
+				this.toRandomSide(1, 1);
 			}
 		}
 
@@ -287,7 +305,7 @@ algorithmHolder.putInstance(1, function () {
 	/**
 	 * Component of ROBOMAZE that is responsible for drawing
 	 */
-	var mapVisualizer = function() {
+	var mapVisualizer = function () {
 		var CELL_SIZE = 20;
 		var mapW = 15;
 		var mapH = 15;
@@ -297,26 +315,27 @@ algorithmHolder.putInstance(1, function () {
 		for (var i = 0; i < mapH; i++) {
 			for (var j = 0; j < mapW; j++) {
 				var div = document.createElement("DIV");
-				div.className="cell";
-				div.id="cell_"+i+"_"+j;
+				div.className = "cell";
+				div.id = "cell_" + i + "_" + j;
 				mapDiv.appendChild(div);
 			}
 		}
 
 
-		this.drawMap = function(map, pos) {
+		this.drawMap = function (map, pos) {
 			for (var i = 0; i < mapH; i++) {
 				for (var j = 0; j < mapW; j++) {
-					var cell = map.getCell({x:j,y:i})
+					var cell = map.getCell({x: j, y: i})
 
-					var div = document.getElementById("cell_"+i+"_"+j);
+					var div = document.getElementById("cell_" + i + "_" + j);
 					div.className = "cell"
-						+ " top-"+TYPE_VALUE[cell.top]
-						+ " right-"+TYPE_VALUE[cell.right]
-						+ " bottom-"+TYPE_VALUE[cell.bottom]
-						+ " left-"+TYPE_VALUE[cell.left];
-					if(cell.center == TYPE_INDEX['space']) div.className+=" space";
-					if(j==pos.x && i==pos.y) div.className+=" pos";
+						+ " top-" + TYPE_VALUE[cell.top]
+						+ " right-" + TYPE_VALUE[cell.right]
+						+ " bottom-" + TYPE_VALUE[cell.bottom]
+						+ " left-" + TYPE_VALUE[cell.left];
+					if (cell.center == TYPE_INDEX['space']) div.className += " space";
+					else if (cell.center == TYPE_INDEX['passable']) div.className += " passable";
+					if (j == pos.x && i == pos.y) div.className += " pos";
 				}
 			}
 		}
@@ -332,8 +351,8 @@ algorithmHolder.putInstance(1, function () {
 			mapVisual = new mapVisualizer();
 		}
 		turn++;
-		mapVisual.drawMap(robot.getMap(), robot.getPosition());
 		robot.setResult(api.result);
+		mapVisual.drawMap(robot.getMap(), robot.getPosition());
 		robot.generateDecision();
 
 		return movesLog[turn] = robot.getCommand();
@@ -342,5 +361,57 @@ algorithmHolder.putInstance(1, function () {
 	return {
 		name: 'Hierarch of ways',
 		roboFunc: HOW
+	};
+}());
+
+// init your code here
+algorithmHolder.putInstance(2, function () {
+	// sample implementation of algorithm
+	var turnDirection,
+		afterScan = false,
+		turnCount = 0;
+	return {
+		name: 'Half Blind',
+		roboFunc: function (api) {
+			if (turnCount) {
+				turnCount--;
+				return turnDirection;
+			}
+
+			if (afterScan) {
+				afterScan = false;
+				// choose turn
+				var turns = [];
+				if (api.result.left === api.PLACE_EXIT || api.result.left === api.PLACE_KEY) {
+					return api.CMD_LEFT;
+				}
+				if (api.result.right === api.PLACE_EXIT || api.result.right === api.PLACE_KEY) {
+					return api.CMD_RIGHT;
+				}
+				if (api.result.left == api.PLACE_SPACE) {
+					turns.push(api.CMD_LEFT);
+				}
+				if (api.result.right == api.PLACE_SPACE) {
+					turns.push(api.CMD_RIGHT);
+				}
+				if (turns.length == 0) {
+					turnCount = 1;
+					turnDirection = api.CMD_RIGHT;
+				} else if (turns.length > 1) {
+					turnDirection = turns[Math.floor(Math.random() * 2)];
+				} else {
+					turnDirection = turns[0];
+				}
+				return turnDirection;
+			}
+
+			if (api.result.success) {
+				return api.CMD_MOVE;
+			} else {
+				// need open eyes
+				afterScan = true;
+				return api.CMD_SCAN;
+			}
+		}
 	};
 }());

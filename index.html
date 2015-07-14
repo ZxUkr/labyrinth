@@ -8,14 +8,17 @@
     <script type="application/javascript" src="vpetlya.js"></script>
     <style>
         #map{
-            width: 300px;
-            height: 300px;
+            width: 360px;
+            height: 360px;
             overflow: hidden;
+            font-size:10px;
+            line-height:20px;
+            text-align:center;
         }
         .cell{
             float: left;
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
             background-color: #aaa;
             border: 2px solid #aaa;
         }
@@ -37,6 +40,9 @@
 
         .space{
             background-color: #fff;
+        }
+        .passable{
+            background-color: #eee;
         }
         .exit{
             background-color: #f00;
