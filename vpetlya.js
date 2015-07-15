@@ -39,10 +39,22 @@ algorithmHolder.putInstance(1, function () {
 
 	var Map = function (width, height) {
 		var data = [];
-		var start = {x: width / 2 >> 0, y: height / 2 >> 0}
+		var center = {x: width / 2 >> 0, y: height / 2 >> 0};
 
 		this.getData = function () {
 			return data;
+		}
+
+		this.getWidth = function () {
+			return width;
+		}
+
+		this.getHeight = function () {
+			return height;
+		}
+
+		this.getInnerPos = function (pos) {
+			return {x: center.x + pos.x, y: center.y + pos.y}
 		}
 
 		this.changeSize = function (top, right, bottom, left) {
@@ -54,7 +66,7 @@ algorithmHolder.putInstance(1, function () {
 				}
 			} else if (top > 0) {
 				for (var i = 0; i < width; i++) {
-					for (var j = 0; j < top; i++) {
+					for (var j = 0; j < top; j++) {
 						data[i].unshift(new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown));
 					}
 				}
@@ -65,7 +77,7 @@ algorithmHolder.putInstance(1, function () {
 				data.splice(data.length + right, -right);
 			} else if (right > 0) {
 				for (var i = 0; i < right; i++) {
-					data.push(new Array[height]);
+					data.push([]);
 					for (var j = 0; j < height; j++) {
 						data[width + i][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown);
 					}
@@ -79,7 +91,7 @@ algorithmHolder.putInstance(1, function () {
 				}
 			} else if (bottom > 0) {
 				for (var i = 0; i < width; i++) {
-					for (var j = 0; j < bottom; i++) {
+					for (var j = 0; j < bottom; j++) {
 						data[i].push(new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown));
 					}
 				}
@@ -90,7 +102,7 @@ algorithmHolder.putInstance(1, function () {
 				data.splice(0, -left);
 			} else if (left > 0) {
 				for (var i = 0; i < left; i++) {
-					data.unshift(new Array[height]);
+					data.unshift([]);
 					for (var j = 0; j < height; j++) {
 						data[0][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown);
 					}
@@ -98,20 +110,35 @@ algorithmHolder.putInstance(1, function () {
 			}
 			width += left;
 
-			start.x += right + left;
-			start.y += top + bottom;
+			center.x += left;
+			center.y += top;
 			return true;
 		}
 
 		this.update = function (pos, info) {
-			if (typeof info.top != 'undefined') data[pos.x][pos.y].top = info.top;
-			if (typeof info.right != 'undefined') data[pos.x][pos.y].right = info.right;
-			if (typeof info.bottom != 'undefined') data[pos.x][pos.y].bottom = info.bottom;
-			if (typeof info.left != 'undefined') data[pos.x][pos.y].left = info.left;
-			if (typeof info.center != 'undefined' && data[pos.x][pos.y].center != TYPE_INDEX.space) data[pos.x][pos.y].center = info.center;
+			var innerPos = this.getInnerPos(pos);
+			if (innerPos.x < 0 || innerPos.x >= width || innerPos.y < 0 || innerPos.y >= height) {
+				var top = innerPos.y < 0 ? Math.round(1 + height * 0.1) : 0;
+				var right = innerPos.x >= width ? Math.round(1 + width * 0.1) : 0;
+				var bottom = innerPos.y >= height ? Math.round(1 + height * 0.1) : 0;
+				var left = innerPos.x < 0 ? Math.round(1 + width * 0.1) : 0;
+				this.changeSize(top, right, bottom, left);
+				innerPos = this.getInnerPos(pos);
+			}
+
+			if (typeof info.top != 'undefined') data[innerPos.x][innerPos.y].top = info.top;
+			if (typeof info.right != 'undefined') data[innerPos.x][innerPos.y].right = info.right;
+			if (typeof info.bottom != 'undefined') data[innerPos.x][innerPos.y].bottom = info.bottom;
+			if (typeof info.left != 'undefined') data[innerPos.x][innerPos.y].left = info.left;
+			if (typeof info.center != 'undefined' && data[innerPos.x][innerPos.y].center != TYPE_INDEX.space) data[innerPos.x][innerPos.y].center = info.center;
 		}
 
 		this.getCell = function (pos) {
+			var innerPos = this.getInnerPos(pos);
+			return data[innerPos.x][innerPos.y];
+		}
+
+		this.getRealCell = function (pos) {
 			return data[pos.x][pos.y];
 		}
 
@@ -122,10 +149,10 @@ algorithmHolder.putInstance(1, function () {
 				data[i][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown);
 			}
 		}
-		this.update({x: start.x, y: start.y}, {center: TYPE_INDEX.passable});
+		this.update({x: 0, y: 0}, {center: TYPE_INDEX.passable});
 	}
 
-	var Position = function (x, y) {
+	var Position = function (x, y) { //Осторожно ресайз карты делает позиции некоректными.
 		this.x = x;
 		this.y = y;
 
@@ -152,9 +179,10 @@ algorithmHolder.putInstance(1, function () {
 		}
 	}
 
+	// ========================================= Robot =========================================
 	var Robot = function () {
-		var map = new Map(15, 15);
-		var pos = new Position(7, 7);
+		var map = new Map(2, 2);
+		var pos = new Position(0, 0);
 		var dir = new Direction(DIRECTION.TOP);
 		var queueCMD = [];
 		var api = null;
@@ -301,31 +329,44 @@ algorithmHolder.putInstance(1, function () {
 		}
 	}
 
-
 	/**
 	 * Component of ROBOMAZE that is responsible for drawing
 	 */
-	var mapVisualizer = function () {
-		var CELL_SIZE = 20;
-		var mapW = 15;
-		var mapH = 15;
+	var mapVisualizer = function (map) {
+		var CELL_SIZE = 24;
+		var mapW = map.getWidth();
+		var mapH = map.getHeight();
 		var mapDiv = document.getElementById("map");
-		var colors = {unknown: "#999", wall: "#000", space: "#fff", exit: "#f00", key: "#0f0", barrier: "#700"};
 
-		for (var i = 0; i < mapH; i++) {
-			for (var j = 0; j < mapW; j++) {
-				var div = document.createElement("DIV");
-				div.className = "cell";
-				div.id = "cell_" + i + "_" + j;
-				mapDiv.appendChild(div);
-			}
-		}
-
-
-		this.drawMap = function (map, pos) {
+		this.createMap = function () {
+			mapDiv.style.width = mapW * CELL_SIZE + "px";
+			mapDiv.style.height = mapH * CELL_SIZE + "px";
 			for (var i = 0; i < mapH; i++) {
 				for (var j = 0; j < mapW; j++) {
-					var cell = map.getCell({x: j, y: i})
+					var div = document.createElement("DIV");
+					div.className = "cell";
+					div.id = "cell_" + i + "_" + j;
+					mapDiv.appendChild(div);
+				}
+			}
+		}
+		this.createMap();
+
+		this.resizeMap = function () {
+			mapW = map.getWidth();
+			mapH = map.getHeight();
+			mapDiv.innerHTML = '';
+			this.createMap();
+		}
+
+		this.drawMap = function (pos) {
+			if (mapW != map.getWidth() || mapH != map.getHeight()) {
+				this.resizeMap();
+			}
+			var innerPos = map.getInnerPos(pos);
+			for (var i = 0; i < mapH; i++) {
+				for (var j = 0; j < mapW; j++) {
+					var cell = map.getRealCell({x: j, y: i})
 
 					var div = document.getElementById("cell_" + i + "_" + j);
 					div.className = "cell"
@@ -335,7 +376,7 @@ algorithmHolder.putInstance(1, function () {
 						+ " left-" + TYPE_VALUE[cell.left];
 					if (cell.center == TYPE_INDEX['space']) div.className += " space";
 					else if (cell.center == TYPE_INDEX['passable']) div.className += " passable";
-					if (j == pos.x && i == pos.y) div.className += " pos";
+					if (j == innerPos.x && i == innerPos.y) div.className += " pos";
 				}
 			}
 		}
@@ -348,11 +389,11 @@ algorithmHolder.putInstance(1, function () {
 	var HOW = function (api) {
 		if (turn == 0) {
 			robot.setApi(api);
-			mapVisual = new mapVisualizer();
+			mapVisual = new mapVisualizer(robot.getMap());
 		}
 		turn++;
 		robot.setResult(api.result);
-		mapVisual.drawMap(robot.getMap(), robot.getPosition());
+		mapVisual.drawMap(robot.getPosition());
 		robot.generateDecision();
 
 		return movesLog[turn] = robot.getCommand();
