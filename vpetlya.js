@@ -4,8 +4,8 @@
  */
 
 algorithmHolder.putInstance(1, function () {
-	const TYPE_INDEX = {unknown: 0, wall: 1, space: 2, exit: 3, key: 4, barrier: 5, passable: 6};
-	const TYPE_VALUE = {0: 'unknown', 1: 'wall', 2: 'space', 3: 'exit', 4: 'key', 5: 'barrier', 6: 'passable'};
+	const TYPE_INDEX = {unknown: 0, barrier: 1, passable: 2, wall: 3, space: 4, exit: 5, key: 6};
+	const TYPE_VALUE = {0: 'unknown', 1: 'barrier', 2: 'passable', 3: 'wall', 4: 'space', 5: 'exit', 6: 'key'};
 	const DIRECTION = {
 		TOP: {dx: 0, dy: -1, forward: 'top', backward: 'bottom', right: "right", left: "left"},
 		RIGHT: {dx: 1, dy: 0, forward: 'right', backward: 'left', right: "bottom", left: "top"},
@@ -19,6 +19,7 @@ algorithmHolder.putInstance(1, function () {
 		this.bottom = bottom;
 		this.left = left;
 		this.center = center;
+		this.counter = 0;
 	}
 
 	var Direction = function (initDirection) {
@@ -55,6 +56,11 @@ algorithmHolder.putInstance(1, function () {
 
 		this.getInnerPos = function (pos) {
 			return {x: center.x + pos.x, y: center.y + pos.y}
+		}
+
+		this.increment = function (pos) {
+			var innerPos = this.getInnerPos(pos);
+			data[innerPos.x][innerPos.y].counter++;
 		}
 
 		this.changeSize = function (top, right, bottom, left) {
@@ -126,11 +132,11 @@ algorithmHolder.putInstance(1, function () {
 				innerPos = this.getInnerPos(pos);
 			}
 
-			if (typeof info.top != 'undefined') data[innerPos.x][innerPos.y].top = info.top;
-			if (typeof info.right != 'undefined') data[innerPos.x][innerPos.y].right = info.right;
-			if (typeof info.bottom != 'undefined') data[innerPos.x][innerPos.y].bottom = info.bottom;
-			if (typeof info.left != 'undefined') data[innerPos.x][innerPos.y].left = info.left;
-			if (typeof info.center != 'undefined' && data[innerPos.x][innerPos.y].center != TYPE_INDEX.space) data[innerPos.x][innerPos.y].center = info.center;
+			if (typeof info.top != 'undefined' && info.top > data[innerPos.x][innerPos.y].top) data[innerPos.x][innerPos.y].top = info.top;
+			if (typeof info.right != 'undefined' && info.right > data[innerPos.x][innerPos.y].right) data[innerPos.x][innerPos.y].right = info.right;
+			if (typeof info.bottom != 'undefined' && info.bottom > data[innerPos.x][innerPos.y].bottom) data[innerPos.x][innerPos.y].bottom = info.bottom;
+			if (typeof info.left != 'undefined' && info.left > data[innerPos.x][innerPos.y].left) data[innerPos.x][innerPos.y].left = info.left;
+			if (typeof info.center != 'undefined' && info.center > data[innerPos.x][innerPos.y].center) data[innerPos.x][innerPos.y].center = info.center;
 		}
 
 		this.getCell = function (pos) {
@@ -236,6 +242,99 @@ algorithmHolder.putInstance(1, function () {
 			queueCMD.push(api.CMD_MOVE);
 		}
 
+		this.toTopSide = function (andMove) {
+			var isPush = false;
+			switch (dir.forward) {
+				case 'top':
+					break;
+				case 'right':
+					queueCMD.push(api.CMD_LEFT);
+					isPush = true;
+					break;
+				case 'bottom':
+					queueCMD.push(api.CMD_RIGHT);
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'left':
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+			}
+			if (andMove == true) queueCMD.push(api.CMD_MOVE);
+			return andMove == true || isPush;
+		}
+
+		this.toRightSide = function (andMove) {
+			var isPush = false;
+			switch (dir.forward) {
+				case 'top':
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'right':
+					queueCMD.push(api.CMD_MOVE);
+					break;
+				case 'bottom':
+					queueCMD.push(api.CMD_LEFT);
+					isPush = true;
+					break;
+				case 'left':
+					queueCMD.push(api.CMD_RIGHT);
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+			}
+			if (andMove == true) queueCMD.push(api.CMD_MOVE);
+			return andMove == true || isPush;
+		}
+
+		this.toBottomSide = function (andMove) {
+			var isPush = false;
+			switch (dir.forward) {
+				case 'top':
+					queueCMD.push(api.CMD_RIGHT);
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'right':
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'bottom':
+					break;
+				case 'left':
+					queueCMD.push(api.CMD_LEFT);
+					isPush = true;
+					break;
+			}
+			if (andMove == true) queueCMD.push(api.CMD_MOVE);
+			return andMove == true || isPush;
+		}
+
+		this.toLeftSide = function (andMove) {
+			var isPush = false;
+			switch (dir.forward) {
+				case 'top':
+					queueCMD.push(api.CMD_LEFT);
+					isPush = true;
+					break;
+				case 'right':
+					queueCMD.push(api.CMD_RIGHT);
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'bottom':
+					queueCMD.push(api.CMD_RIGHT);
+					isPush = true;
+					break;
+				case 'left':
+					break;
+			}
+			if (andMove == true) queueCMD.push(api.CMD_MOVE);
+			return andMove == true || isPush;
+		}
+
 		this.toScan = function () {
 			queueCMD.push(api.CMD_SCAN);
 		}
@@ -297,6 +396,7 @@ algorithmHolder.putInstance(1, function () {
 						info = {center: TYPE_INDEX.passable};
 						info[dir.backward] = TYPE_INDEX.space;
 						map.update(pos, info);
+						map.increment(pos);
 					} else {
 						if (queueCMD.length > 0) queueCMD = [];
 						info = {};
@@ -305,6 +405,8 @@ algorithmHolder.putInstance(1, function () {
 						info = {};
 						info[dir.backward] = TYPE_INDEX.barrier;
 						map.update(pos.movePos(dir), info);
+						this.toScan();
+						this.toScan();
 					}
 					break;
 			}
@@ -315,12 +417,49 @@ algorithmHolder.putInstance(1, function () {
 			if (queueCMD.length > 0) return;
 
 			var cell = map.getCell(pos);
-			if (Math.random() < 0.1) {
-				this.toScan();
-			} else if (cell[dir.forward] != TYPE_INDEX['wall'] && cell[dir.forward] != TYPE_INDEX['barrier']) {
+			if (cell[dir.forward] == TYPE_INDEX['unknown']) {
 				this.toMove();
+			} else if (cell[dir.right] == TYPE_INDEX['unknown']) {
+				this.toRight();
+				this.toMove();
+			} else if (cell[dir.left] == TYPE_INDEX['unknown']) {
+				this.toLeft();
+				this.toMove();
+			} else if (cell[dir.backward] == TYPE_INDEX['unknown']) {
+				this.toRight();
+				this.toRight();
+				this.toMove();
+			} else if (cell[dir.forward] == TYPE_INDEX['barrier'] || cell[dir.forward] == TYPE_INDEX['passable']) {
+				this.toScan();
 			} else {
-				this.toRandomSide(1, 1);
+				var forwCell = map.getCell(pos.movePos(DIRECTION[dir.forward.toUpperCase()]));
+				var rightCell = map.getCell(pos.movePos(DIRECTION[dir.right.toUpperCase()]));
+				var leftCell = map.getCell(pos.movePos(DIRECTION[dir.left.toUpperCase()]));
+				var backCell = map.getCell(pos.movePos(DIRECTION[dir.backward.toUpperCase()]));
+				if (cell[dir.forward] != TYPE_INDEX['wall'] && cell[dir.forward] != TYPE_INDEX['barrier']
+					&&(forwCell.counter < rightCell.counter || cell[dir.right] == TYPE_INDEX['wall'] || cell[dir.right] == TYPE_INDEX['barrier'])
+					&&(forwCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX['wall'] || cell[dir.left] == TYPE_INDEX['barrier'])
+					&& (forwCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+					) {
+					this.toMove();
+				} else if (cell[dir.right] != TYPE_INDEX['wall'] && cell[dir.right] != TYPE_INDEX['barrier']
+					&&(rightCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX['wall'] || cell[dir.left] == TYPE_INDEX['barrier'])
+					&& (rightCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+				) {
+					this.toRight();
+					this.toMove();
+				} else if (cell[dir.left] != TYPE_INDEX['wall'] && cell[dir.left] != TYPE_INDEX['barrier']
+					&& (leftCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+				) {
+					this.toLeft();
+					this.toMove();
+				} else if (cell[dir.backward] != TYPE_INDEX['wall'] && cell[dir.backward] != TYPE_INDEX['barrier']) {
+					this.toRight();
+					this.toRight();
+					this.toMove();
+				} else {
+					this.toRandomSide(1, 1);
+				}
 			}
 		}
 
@@ -374,9 +513,11 @@ algorithmHolder.putInstance(1, function () {
 						+ " right-" + TYPE_VALUE[cell.right]
 						+ " bottom-" + TYPE_VALUE[cell.bottom]
 						+ " left-" + TYPE_VALUE[cell.left];
-					if (cell.center == TYPE_INDEX['space']) div.className += " space";
-					else if (cell.center == TYPE_INDEX['passable']) div.className += " passable";
+					if (cell.center == TYPE_INDEX['passable']) div.className += " passable";
+					else if (cell.center == TYPE_INDEX['space']) div.className += " space";
+					else if (cell.center == TYPE_INDEX['key']) div.className += " key";
 					if (j == innerPos.x && i == innerPos.y) div.className += " pos";
+					if (cell.counter > 0) div.innerHTML = cell.counter;
 				}
 			}
 		}
