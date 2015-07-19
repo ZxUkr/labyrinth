@@ -121,6 +121,25 @@ algorithmHolder.putInstance(1, function () {
 			return true;
 		}
 
+		this.keyFound = function(){
+			for (var i = 0; i < width; i++) {
+				for (var j = 0; j < height; j++) {
+					if(data[i][j].center == TYPE_INDEX.passable) data[i][j].center = TYPE_INDEX.space ;
+				}
+			}
+		}
+
+		this.exitFound = function(){
+			for (var i = 0; i < width; i++) {
+				for (var j = 0; j < height; j++) {
+					if(data[i][j].top == TYPE_INDEX.barrier) data[i][j].top = TYPE_INDEX.wall;
+					if(data[i][j].right == TYPE_INDEX.barrier) data[i][j].right = TYPE_INDEX.wall;
+					if(data[i][j].bottom == TYPE_INDEX.barrier) data[i][j].bottom = TYPE_INDEX.wall;
+					if(data[i][j].left == TYPE_INDEX.barrier) data[i][j].left = TYPE_INDEX.wall;
+				}
+			}
+		}
+
 		this.update = function (pos, info) {
 			var innerPos = this.getInnerPos(pos);
 			if (innerPos.x < 0 || innerPos.x >= width || innerPos.y < 0 || innerPos.y >= height) {
@@ -137,6 +156,13 @@ algorithmHolder.putInstance(1, function () {
 			if (typeof info.bottom != 'undefined' && info.bottom > data[innerPos.x][innerPos.y].bottom) data[innerPos.x][innerPos.y].bottom = info.bottom;
 			if (typeof info.left != 'undefined' && info.left > data[innerPos.x][innerPos.y].left) data[innerPos.x][innerPos.y].left = info.left;
 			if (typeof info.center != 'undefined' && info.center > data[innerPos.x][innerPos.y].center) data[innerPos.x][innerPos.y].center = info.center;
+
+			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.key) > -1) {
+				this.keyFound();
+			}
+			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.exit) > -1) {
+				this.exitFound();
+			}
 		}
 
 		this.getCell = function (pos) {
@@ -417,43 +443,43 @@ algorithmHolder.putInstance(1, function () {
 			if (queueCMD.length > 0) return;
 
 			var cell = map.getCell(pos);
-			if (cell[dir.forward] == TYPE_INDEX['unknown']) {
+			if (cell[dir.forward] == TYPE_INDEX.unknown) {
 				this.toMove();
-			} else if (cell[dir.right] == TYPE_INDEX['unknown']) {
+			} else if (cell[dir.right] == TYPE_INDEX.unknown) {
 				this.toRight();
 				this.toMove();
-			} else if (cell[dir.left] == TYPE_INDEX['unknown']) {
+			} else if (cell[dir.left] == TYPE_INDEX.unknown) {
 				this.toLeft();
 				this.toMove();
-			} else if (cell[dir.backward] == TYPE_INDEX['unknown']) {
+			} else if (cell[dir.backward] == TYPE_INDEX.unknown) {
 				this.toRight();
 				this.toRight();
 				this.toMove();
-			} else if (cell[dir.forward] == TYPE_INDEX['barrier'] || cell[dir.forward] == TYPE_INDEX['passable']) {
+			} else if (cell[dir.forward] == TYPE_INDEX.barrier || cell[dir.forward] == TYPE_INDEX.passable) {
 				this.toScan();
 			} else {
 				var forwCell = map.getCell(pos.movePos(DIRECTION[dir.forward.toUpperCase()]));
 				var rightCell = map.getCell(pos.movePos(DIRECTION[dir.right.toUpperCase()]));
 				var leftCell = map.getCell(pos.movePos(DIRECTION[dir.left.toUpperCase()]));
 				var backCell = map.getCell(pos.movePos(DIRECTION[dir.backward.toUpperCase()]));
-				if (cell[dir.forward] != TYPE_INDEX['wall'] && cell[dir.forward] != TYPE_INDEX['barrier']
-					&&(forwCell.counter < rightCell.counter || cell[dir.right] == TYPE_INDEX['wall'] || cell[dir.right] == TYPE_INDEX['barrier'])
-					&&(forwCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX['wall'] || cell[dir.left] == TYPE_INDEX['barrier'])
-					&& (forwCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+				if (cell[dir.forward] != TYPE_INDEX.wall && cell[dir.forward] != TYPE_INDEX.barrier
+					&&(forwCell.counter < rightCell.counter || cell[dir.right] == TYPE_INDEX.wall || cell[dir.right] == TYPE_INDEX.barrier)
+					&&(forwCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX.wall || cell[dir.left] == TYPE_INDEX.barrier)
+					&& (forwCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
 					) {
 					this.toMove();
-				} else if (cell[dir.right] != TYPE_INDEX['wall'] && cell[dir.right] != TYPE_INDEX['barrier']
-					&&(rightCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX['wall'] || cell[dir.left] == TYPE_INDEX['barrier'])
-					&& (rightCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+				} else if (cell[dir.right] != TYPE_INDEX.wall && cell[dir.right] != TYPE_INDEX.barrier
+					&&(rightCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX.wall || cell[dir.left] == TYPE_INDEX.barrier)
+					&& (rightCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
 				) {
 					this.toRight();
 					this.toMove();
-				} else if (cell[dir.left] != TYPE_INDEX['wall'] && cell[dir.left] != TYPE_INDEX['barrier']
-					&& (leftCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX['wall'] || cell[dir.backward] == TYPE_INDEX['barrier'])
+				} else if (cell[dir.left] != TYPE_INDEX.wall && cell[dir.left] != TYPE_INDEX.barrier
+					&& (leftCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
 				) {
 					this.toLeft();
 					this.toMove();
-				} else if (cell[dir.backward] != TYPE_INDEX['wall'] && cell[dir.backward] != TYPE_INDEX['barrier']) {
+				} else if (cell[dir.backward] != TYPE_INDEX.wall && cell[dir.backward] != TYPE_INDEX.barrier) {
 					this.toRight();
 					this.toRight();
 					this.toMove();
@@ -513,9 +539,9 @@ algorithmHolder.putInstance(1, function () {
 						+ " right-" + TYPE_VALUE[cell.right]
 						+ " bottom-" + TYPE_VALUE[cell.bottom]
 						+ " left-" + TYPE_VALUE[cell.left];
-					if (cell.center == TYPE_INDEX['passable']) div.className += " passable";
-					else if (cell.center == TYPE_INDEX['space']) div.className += " space";
-					else if (cell.center == TYPE_INDEX['key']) div.className += " key";
+					if (cell.center == TYPE_INDEX.passable) div.className += " passable";
+					else if (cell.center == TYPE_INDEX.space) div.className += " space";
+					else if (cell.center == TYPE_INDEX.key) div.className += " key";
 					if (j == innerPos.x && i == innerPos.y) div.className += " pos";
 					if (cell.counter > 0) div.innerHTML = cell.counter;
 				}
