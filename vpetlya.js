@@ -4,8 +4,10 @@
  */
 
 algorithmHolder.putInstance(1, function () {
-	const TYPE_INDEX = {unknown: 0, barrier: 1, passable: 2, wall: 3, space: 4, exit: 5, key: 6};
-	const TYPE_VALUE = {0: 'unknown', 1: 'barrier', 2: 'passable', 3: 'wall', 4: 'space', 5: 'exit', 6: 'key'};
+	const TYPE_BITS = {known: 2, type: 1, goal:2}; // type: 0 - passable, 1 - barrier;  goal: 00 - space, 10 - wall, 01 - key, 11 - exit
+	const MASK = {known:1+2, type:4, goal:8+16};
+	const TYPE_INDEX = {unknown: 0, barrier: 1+4, passable: 1+0, space: 3+0+0, wall: 3+4+8, exit: 3+4+(8+16), key: 3+0+16};
+	const TYPE_VALUE = {0: 'unknown', 1: 'passable', 3: 'space', 5: 'barrier', 15: 'wall', 19: 'key', 31: 'exit'};
 	const DIRECTION = {
 		TOP: {dx: 0, dy: -1, forward: 'top', backward: 'bottom', right: "right", left: "left"},
 		RIGHT: {dx: 1, dy: 0, forward: 'right', backward: 'left', right: "bottom", left: "top"},
@@ -41,6 +43,8 @@ algorithmHolder.putInstance(1, function () {
 	var Map = function (width, height) {
 		var data = [];
 		var center = {x: width / 2 >> 0, y: height / 2 >> 0};
+		var keyPos = null;
+		var exitPos = null;
 
 		this.getData = function () {
 			return data;
@@ -121,7 +125,8 @@ algorithmHolder.putInstance(1, function () {
 			return true;
 		}
 
-		this.keyFound = function(){
+		this.keyFound = function(pos){
+			keyPos = pos;
 			for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].center == TYPE_INDEX.passable) data[i][j].center = TYPE_INDEX.space ;
@@ -129,7 +134,8 @@ algorithmHolder.putInstance(1, function () {
 			}
 		}
 
-		this.exitFound = function(){
+		this.exitFound = function(pos){
+			exitPos = pos;
 			for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].top == TYPE_INDEX.barrier) data[i][j].top = TYPE_INDEX.wall;
@@ -158,10 +164,10 @@ algorithmHolder.putInstance(1, function () {
 			if (typeof info.center != 'undefined' && info.center > data[innerPos.x][innerPos.y].center) data[innerPos.x][innerPos.y].center = info.center;
 
 			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.key) > -1) {
-				this.keyFound();
+				this.keyFound(innerPos);
 			}
 			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.exit) > -1) {
-				this.exitFound();
+				this.exitFound(innerPos);
 			}
 		}
 
@@ -443,7 +449,10 @@ algorithmHolder.putInstance(1, function () {
 			if (queueCMD.length > 0) return;
 
 			var cell = map.getCell(pos);
-			if (cell[dir.forward] == TYPE_INDEX.unknown) {
+			var c = +(cell[dir.forward] == TYPE_INDEX.unknown) + (cell[dir.right] == TYPE_INDEX.unknown) + (cell[dir.left] == TYPE_INDEX.unknown);
+			if (c>1) {
+				this.toScan();
+			}else if (cell[dir.forward] == TYPE_INDEX.unknown) {
 				this.toMove();
 			} else if (cell[dir.right] == TYPE_INDEX.unknown) {
 				this.toRight();
@@ -462,24 +471,24 @@ algorithmHolder.putInstance(1, function () {
 				var rightCell = map.getCell(pos.movePos(DIRECTION[dir.right.toUpperCase()]));
 				var leftCell = map.getCell(pos.movePos(DIRECTION[dir.left.toUpperCase()]));
 				var backCell = map.getCell(pos.movePos(DIRECTION[dir.backward.toUpperCase()]));
-				if (cell[dir.forward] != TYPE_INDEX.wall && cell[dir.forward] != TYPE_INDEX.barrier
-					&&(forwCell.counter < rightCell.counter || cell[dir.right] == TYPE_INDEX.wall || cell[dir.right] == TYPE_INDEX.barrier)
-					&&(forwCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX.wall || cell[dir.left] == TYPE_INDEX.barrier)
-					&& (forwCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
+				if ((cell[dir.forward] & MASK.type) == 0
+					&& (forwCell.counter <= rightCell.counter || (cell[dir.right] & MASK.type) > 0)
+					&& (forwCell.counter <= leftCell.counter || (cell[dir.left] & MASK.type) > 0)
+					&& (forwCell.counter <= backCell.counter || (cell[dir.backward] & MASK.type) > 0)
 					) {
 					this.toMove();
-				} else if (cell[dir.right] != TYPE_INDEX.wall && cell[dir.right] != TYPE_INDEX.barrier
-					&&(rightCell.counter < leftCell.counter || cell[dir.left] == TYPE_INDEX.wall || cell[dir.left] == TYPE_INDEX.barrier)
-					&& (rightCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
-				) {
+				} else if ((cell[dir.right] & MASK.type) == 0
+					&&(rightCell.counter <= leftCell.counter || (cell[dir.left] & MASK.type) > 0)
+					&& (rightCell.counter <= backCell.counter || (cell[dir.backward] & MASK.type) > 0)
+					) {
 					this.toRight();
 					this.toMove();
-				} else if (cell[dir.left] != TYPE_INDEX.wall && cell[dir.left] != TYPE_INDEX.barrier
-					&& (leftCell.counter < backCell.counter || cell[dir.backward] == TYPE_INDEX.wall || cell[dir.backward] == TYPE_INDEX.barrier)
-				) {
+				} else if ((cell[dir.left] & MASK.type) == 0
+					&& (leftCell.counter <= backCell.counter || (cell[dir.backward] & MASK.type) > 0)
+					) {
 					this.toLeft();
 					this.toMove();
-				} else if (cell[dir.backward] != TYPE_INDEX.wall && cell[dir.backward] != TYPE_INDEX.barrier) {
+				} else if ((cell[dir.backward] & MASK.type) == 0) {
 					this.toRight();
 					this.toRight();
 					this.toMove();
@@ -487,10 +496,6 @@ algorithmHolder.putInstance(1, function () {
 					this.toRandomSide(1, 1);
 				}
 			}
-		}
-
-		this.makeMove = function () {
-
 		}
 	}
 
