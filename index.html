@@ -79,6 +79,11 @@
         </td>
     </tr>
 </table>
-
+<script>
+    var sheet = document.styleSheets[0];
+    for(var i=0; i<100; i++){
+        sheet.insertRule(".zone"+i+" { background-color: #"+Math.floor(Math.random()*16777215).toString(16)+"; }", sheet.cssRules.length);
+    }
+</script>
 </body>
 </html>

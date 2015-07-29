@@ -25,6 +25,7 @@ algorithmHolder.putInstance(1, function () {
 		this.counter = 0;
 		this.step = null;
 		this.probability = null;
+		this.zone = null;
 		this.x = x;
 		this.y = y;
 	}
@@ -49,6 +50,7 @@ algorithmHolder.putInstance(1, function () {
 	// ======================== MAP ========================
 	var Map = function (width, height) {
 		var data = [];
+		this.updateForDraw = [];
 		var center = {x: width / 2 >> 0, y: height / 2 >> 0};
 		this.keyPos = null;
 		this.exitPos = null;
@@ -56,9 +58,17 @@ algorithmHolder.putInstance(1, function () {
 		var realRight = 0;
 		var realBottom = 0;
 		var realLeft = width;
+		var zones = [];
+		var probabilityH = 1;
+		var probabilityV = 1;
+		var cells = 1;
 
 		this.getData = function () {
 			return data;
+		}
+
+		this.getZones = function() {
+			return zones;
 		}
 
 		this.getWidth = function () {
@@ -139,10 +149,12 @@ algorithmHolder.putInstance(1, function () {
 
 			center.x += left;
 			center.y += top;
+			realLeft += left;
+			realTop += top;
 			return true;
 		}
 
-		this.updateCells = function(){
+		this.updateCoordinates = function(){
 			for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					data[i][j].x=i;
@@ -153,23 +165,23 @@ algorithmHolder.putInstance(1, function () {
 
 		this.keyFound = function(pos){
 			this.keyPos = new Position(pos.x, pos.y);
-			for (var i = 0; i < width; i++) {
+			/*for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].center == TYPE_INDEX.passable) data[i][j].center = TYPE_INDEX.space ;
 				}
-			}
+			}*/
 		}
 
 		this.exitFound = function(pos){
 			this.exitPos = new Position(pos.x, pos.y);
-			for (var i = 0; i < width; i++) {
+			/*for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].top == TYPE_INDEX.barrier) data[i][j].top = TYPE_INDEX.wall;
 					if(data[i][j].right == TYPE_INDEX.barrier) data[i][j].right = TYPE_INDEX.wall;
 					if(data[i][j].bottom == TYPE_INDEX.barrier) data[i][j].bottom = TYPE_INDEX.wall;
 					if(data[i][j].left == TYPE_INDEX.barrier) data[i][j].left = TYPE_INDEX.wall;
 				}
-			}
+			}*/
 		}
 
 		this.update = function (pos, info) {
@@ -180,7 +192,7 @@ algorithmHolder.putInstance(1, function () {
 				var bottom = innerPos.y >= height-1 ? Math.round(1 + height * 0.1) : 0;
 				var left = innerPos.x <= 0 ? Math.round(1 + width * 0.1) : 0;
 				this.changeSize(top, right, bottom, left);
-				this.updateCells();
+				this.updateCoordinates();
 				innerPos = this.getInnerPos(pos);
 			}
 
@@ -201,6 +213,7 @@ algorithmHolder.putInstance(1, function () {
 			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.exit) > -1 && this.exitPos == null) {
 				this.exitFound(pos);
 			}
+			this.updateForDraw.push(data[innerPos.x][innerPos.y]);
 		}
 
 		this.getCell = function (pos) {
@@ -216,10 +229,53 @@ algorithmHolder.putInstance(1, function () {
 			return data[pos.x][pos.y];
 		}
 
-		this.resetSteps = function () {
+		this.resetField = function () {
 			for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					data[i][j].step = null;
+					data[i][j].zone = null;
+				}
+			}
+		}
+
+		this.findZones = function () {
+			var zoneCounter = 0;
+			for (var i = 0; i < width; i++) {
+				for (var j = 0; j < height; j++) {
+					if (data[i][j].zone == null && (data[i][j].center & MASK.known) == 0) {
+						var front = [this.getRealCell({x: i, y: j})];
+						front[0].zone = zoneCounter;
+						var zoneSize = 1;
+						while (front.length > 0) {
+							var current = front.shift();
+							var topCell = this.getRealCell({x: current.x, y: current.y - 1});
+							var rightCell = this.getRealCell({x: current.x + 1, y: current.y});
+							var bottomCell = this.getRealCell({x: current.x, y: current.y + 1});
+							var leftCell = this.getRealCell({x: current.x - 1, y: current.y});
+							if(topCell && topCell.zone == null && (topCell.center & MASK.known) == 0){
+								topCell.zone = zoneCounter;
+								front.push(topCell);
+								zoneSize++;
+							}
+							if(rightCell && rightCell.zone == null && (rightCell.center & MASK.known) == 0){
+								rightCell.zone = zoneCounter;
+								front.push(rightCell);
+								zoneSize++;
+							}
+							if(bottomCell && bottomCell.zone == null && (bottomCell.center & MASK.known) == 0){
+								bottomCell.zone = zoneCounter;
+								front.push(bottomCell);
+								zoneSize++;
+							}
+							if(leftCell && leftCell.zone == null && (leftCell.center & MASK.known) == 0){
+								leftCell.zone = zoneCounter;
+								front.push(leftCell);
+								zoneSize++;
+							}
+						}
+						zones[zoneCounter] = zoneSize;
+						zoneCounter++;
+					}
 				}
 			}
 		}
@@ -247,7 +303,7 @@ algorithmHolder.putInstance(1, function () {
 		}
 
 		this.findShortestPath = function (startCell, endCell) { //Алгоритм Дейкстры
-			this.resetSteps();
+			this.resetField();
 			startCell.step = 0;
 			var front = [startCell];
 			while (front.length > 0) {
@@ -288,7 +344,12 @@ algorithmHolder.putInstance(1, function () {
 		this.findNearestGoal = function (startCell, randomLevel, maxLoss) { //Алгоритм Дейкстры
 			if (typeof randomLevel == "undefined") randomLevel = 3;
 			if (typeof maxLoss == "undefined") maxLoss = 1.07; // 7%
-			this.resetSteps();
+			this.resetField();
+			var zone = null;
+			if (this.keyPos != null) {
+				this.findZones();
+				zone = 0;
+			}
 			startCell.step = 0;
 			var lastStep = Number.MAX_VALUE;
 			var front = [startCell];
@@ -302,28 +363,28 @@ algorithmHolder.putInstance(1, function () {
 
 				if ((current.top & MASK.type) == 0 && topCell && (topCell.step == null || current.step + 1 < topCell.step)) {
 					topCell.step = current.step + 1;
-					if ((current.top & MASK.known) == 0 && (topCell.center & MASK.known) == 0) {
+					if ((current.top & MASK.known) == 0 && (topCell.center & MASK.known) == 0 && topCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
 					} else front.push(topCell);
 				}
 				if ((current.right & MASK.type) == 0 && rightCell && (rightCell.step == null || current.step + 1 < rightCell.step)) {
 					rightCell.step = current.step + 1;
-					if ((current.right & MASK.known) == 0 && (rightCell.center & MASK.known) == 0) {
+					if ((current.right & MASK.known) == 0 && (rightCell.center & MASK.known) == 0 && rightCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
 					} else front.push(rightCell);
 				}
 				if ((current.bottom & MASK.type) == 0 && bottomCell && (bottomCell.step == null || current.step + 1 < bottomCell.step)) {
 					bottomCell.step = current.step + 1;
-					if ((current.bottom & MASK.known) == 0 && (bottomCell.center & MASK.known) == 0) {
+					if ((current.bottom & MASK.known) == 0 && (bottomCell.center & MASK.known) == 0 && bottomCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
 					} else front.push(bottomCell);
 				}
 				if ((current.left & MASK.type) == 0 && leftCell && (leftCell.step == null || current.step + 1 < leftCell.step)) {
 					leftCell.step = current.step + 1;
-					if ((current.left & MASK.known) == 0 && (leftCell.center & MASK.known) == 0) {
+					if ((current.left & MASK.known) == 0 && (leftCell.center & MASK.known) == 0 && leftCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
 					} else front.push(leftCell);
@@ -654,7 +715,7 @@ algorithmHolder.putInstance(1, function () {
 				if (path != false) {
 					this.toPath(path);
 				}
-			} else if (c > 1 || (c == 1 && map.isEdge(pos))) {
+			} else if (c > 1 || (c >= 1 && map.isEdge(pos))) {
 				this.toScan();
 			} else if (cell[dir.forward] == TYPE_INDEX.unknown || (map.exitPos != null && map.keyPos != null && cell[dir.forward] == TYPE_INDEX.exit) || (map.keyPos != null && cell[dir.forward] == TYPE_INDEX.key)) {
 				this.toMove();
@@ -713,6 +774,51 @@ algorithmHolder.putInstance(1, function () {
 			if (mapW != map.getWidth() || mapH != map.getHeight()) {
 				this.resizeMap();
 			}
+//			var colors = [];
+//			for (i in map.getZones()){
+//				colors[i] = Math.floor(Math.random()*16777215).toString(16);
+//			}
+
+			var innerPos = map.getInnerPos(robot.getPosition());
+			for (var i = 0; i < mapH; i++) {
+				for (var j = 0; j < mapW; j++) {
+					var cell = map.getRealCell({x: j, y: i})
+					var div = document.getElementById("cell_" + i + "_" + j);
+					div.className = "cell"
+						+ " top-" + TYPE_VALUE[cell.top]
+						+ " right-" + TYPE_VALUE[cell.right]
+						+ " bottom-" + TYPE_VALUE[cell.bottom]
+						+ " left-" + TYPE_VALUE[cell.left];
+					if (cell.center == TYPE_INDEX.passable) div.className += " passable";
+					else if (cell.center == TYPE_INDEX.space) div.className += " space";
+					else if (cell.center == TYPE_INDEX.key) div.className += " key";
+					if (cell.zone != null)  div.className += " zone" + cell.zone;
+					if (j == innerPos.x && i == innerPos.y) div.className += " pos";
+					if (cell.counter > 0) div.innerHTML = cell.counter;
+				}
+			}
+		}
+
+		this.updateMap = function(robot) {
+			if (mapW != map.getWidth() || mapH != map.getHeight()) {
+				this.drawMap(robot);
+			}
+
+			var innerPos = map.getInnerPos(robot.getPosition());
+			for (var i = 0; i < map.updateForDraw.length; i++) {
+				var cell = map.updateForDraw[i];
+				var div = document.getElementById("cell_" + cell.y + "_" + cell.x);
+				div.className = "cell"
+					+ " top-" + TYPE_VALUE[cell.top]
+					+ " right-" + TYPE_VALUE[cell.right]
+					+ " bottom-" + TYPE_VALUE[cell.bottom]
+					+ " left-" + TYPE_VALUE[cell.left];
+				if (cell.center == TYPE_INDEX.passable) div.className += " passable";
+				else if (cell.center == TYPE_INDEX.space) div.className += " space";
+				else if (cell.center == TYPE_INDEX.key) div.className += " key";
+				if (cell == map.getRealCell(innerPos)) div.className += " pos";
+				if (cell.counter > 0) div.innerHTML = cell.counter;
+			}
 
 			var queue = robot.getQueueCommands();
 			var way =[];
@@ -726,30 +832,13 @@ algorithmHolder.putInstance(1, function () {
 					else if (queue[i] == api.CMD_RIGHT) currDir.toRight();
 					else if (queue[i] == api.CMD_MOVE) {
 						currPos = currPos.nextPos(currDir);
-						way.push(map.getCell(currPos));
+						cell = map.getCell(currPos);
+						div = document.getElementById("cell_" + cell.y + "_" + cell.x);
+						div.className += ' way';
 					}
 				}
 			}
-
-			var innerPos = map.getInnerPos(robot.getPosition());
-			for (var i = 0; i < mapH; i++) {
-				for (var j = 0; j < mapW; j++) {
-					var cell = map.getRealCell({x: j, y: i})
-
-					var div = document.getElementById("cell_" + i + "_" + j);
-					div.className = "cell"
-						+ " top-" + TYPE_VALUE[cell.top]
-						+ " right-" + TYPE_VALUE[cell.right]
-						+ " bottom-" + TYPE_VALUE[cell.bottom]
-						+ " left-" + TYPE_VALUE[cell.left];
-					if (cell.center == TYPE_INDEX.passable) div.className += " passable";
-					else if (cell.center == TYPE_INDEX.space) div.className += " space";
-					else if (cell.center == TYPE_INDEX.key) div.className += " key";
-					if (j == innerPos.x && i == innerPos.y) div.className += " pos";
-					if(way.indexOf(cell)>=0) div.className += ' way';
-					if (cell.counter > 0) div.innerHTML = cell.counter;
-				}
-			}
+			map.updateForDraw = [];
 		}
 	};
 
@@ -766,7 +855,8 @@ algorithmHolder.putInstance(1, function () {
 			}
 			turn++;
 			robot.setResult(api.result);
-			mapVisual.drawMap(robot);
+			if(robot.getMap().keyPos!=null && turn%50 == 0) mapVisual.drawMap(robot);
+			else mapVisual.updateMap(robot);
 			robot.generateDecision();
 
 			return movesLog[turn] = robot.getCommand();
