@@ -6,7 +6,7 @@
 algorithmHolder.putInstance(1, function () {
 	const TYPE_BITS = {known: 2, type: 1, goal:2}; // type: 0 - passable, 1 - barrier;  goal: 00 - space, 10 - wall, 01 - key, 11 - exit
 	const MASK = {known:1+2, type:4, goal:8+16};
-	const TYPE_INDEX = {unknown: 0, barrier: 1+4, passable: 1+0, space: 3+0+0, wall: 3+4+8, exit: 3+4+(8+16), key: 3+0+16};
+	const TYPE_INDEX = {unknown: 0, passable: 1+0, barrier: 1+4, space: 3+0+0, wall: 3+4+8, key: 3+0+16, exit: 3+4+(8+16)};
 	const TYPE_VALUE = {0: 'unknown', 1: 'passable', 3: 'space', 5: 'barrier', 15: 'wall', 19: 'key', 31: 'exit'};
 	const DIRECTION = {
 		top: {dx: 0, dy: -1, forward: 'top', backward: 'bottom', right: "right", left: "left"},
@@ -54,14 +54,18 @@ algorithmHolder.putInstance(1, function () {
 		var center = {x: width / 2 >> 0, y: height / 2 >> 0};
 		this.keyPos = null;
 		this.exitPos = null;
+		this.keyPossibilityCells = 0;
 		var realTop = height;
 		var realRight = 0;
 		var realBottom = 0;
 		var realLeft = width;
 		var zones = [];
-		var probabilityH = 1;
-		var probabilityV = 1;
+		var horizontalWalls = 0;
+		var verticalWalls = 0;
 		var cells = 1;
+		this.getHorizontalProbability = function(){return 0.5*horizontalWalls/cells};
+		this.getVerticalProbability = function(){return 0.5*verticalWalls/cells};
+		this.getAverageSize = function(){ return 0.5*(realRight-realLeft + realBottom-realTop) };
 
 		this.getData = function () {
 			return data;
@@ -81,8 +85,7 @@ algorithmHolder.putInstance(1, function () {
 
 		this.isEdge = function(pos) {
 			var innerPos = this.getInnerPos(pos);
-			if(innerPos.x == realLeft || innerPos.x == realRight || innerPos.y == realTop || innerPos.y == realBottom) return true;
-			return false;
+			return innerPos.x == realLeft || innerPos.x == realRight || innerPos.y == realTop || innerPos.y == realBottom;
 		}
 
 		this.getInnerPos = function (pos) {
@@ -165,6 +168,7 @@ algorithmHolder.putInstance(1, function () {
 
 		this.keyFound = function(pos){
 			this.keyPos = new Position(pos.x, pos.y);
+			this.keyPos.turn = turn;
 			/*for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].center == TYPE_INDEX.passable) data[i][j].center = TYPE_INDEX.space ;
@@ -174,6 +178,7 @@ algorithmHolder.putInstance(1, function () {
 
 		this.exitFound = function(pos){
 			this.exitPos = new Position(pos.x, pos.y);
+			this.exitPos.turn = turn;
 			/*for (var i = 0; i < width; i++) {
 				for (var j = 0; j < height; j++) {
 					if(data[i][j].top == TYPE_INDEX.barrier) data[i][j].top = TYPE_INDEX.wall;
@@ -182,6 +187,15 @@ algorithmHolder.putInstance(1, function () {
 					if(data[i][j].left == TYPE_INDEX.barrier) data[i][j].left = TYPE_INDEX.wall;
 				}
 			}*/
+		}
+
+		this.exitLocked = function(){
+			for (var i = 0; i < width; i++) {
+				for (var j = 0; j < height; j++) {
+					if (data[i][j].center == TYPE_INDEX.passable) data[i][j].center = TYPE_INDEX.space;
+				}
+			}
+			this.keyPossibilityCells = 0;
 		}
 
 		this.update = function (pos, info) {
@@ -201,19 +215,36 @@ algorithmHolder.putInstance(1, function () {
 			if (innerPos.y < realTop) realTop = innerPos.y+1;
 			else if (innerPos.y > realBottom) realBottom = innerPos.y-1;
 
-			if (typeof info.top != 'undefined' && info.top > data[innerPos.x][innerPos.y].top) data[innerPos.x][innerPos.y].top = info.top;
-			if (typeof info.right != 'undefined' && info.right > data[innerPos.x][innerPos.y].right) data[innerPos.x][innerPos.y].right = info.right;
-			if (typeof info.bottom != 'undefined' && info.bottom > data[innerPos.x][innerPos.y].bottom) data[innerPos.x][innerPos.y].bottom = info.bottom;
-			if (typeof info.left != 'undefined' && info.left > data[innerPos.x][innerPos.y].left) data[innerPos.x][innerPos.y].left = info.left;
-			if (typeof info.center != 'undefined' && info.center > data[innerPos.x][innerPos.y].center) data[innerPos.x][innerPos.y].center = info.center;
+			if (typeof info.top != 'undefined') {
+				if ((data[innerPos.x][innerPos.y].top & MASK.known) <= 1 && info.top == TYPE_INDEX.wall) horizontalWalls++;
+				if (info.top > data[innerPos.x][innerPos.y].top) data[innerPos.x][innerPos.y].top = info.top;
+			}
+			if (typeof info.right != 'undefined') {
+				if ((data[innerPos.x][innerPos.y].right & MASK.known) <= 1 && info.right == TYPE_INDEX.wall) verticalWalls++;
+				if (info.right > data[innerPos.x][innerPos.y].right) data[innerPos.x][innerPos.y].right = info.right;
+			}
+			if (typeof info.bottom != 'undefined') {
+				if ((data[innerPos.x][innerPos.y].bottom & MASK.known) <= 1 && info.bottom == TYPE_INDEX.wall) horizontalWalls++;
+				if (info.bottom > data[innerPos.x][innerPos.y].bottom) data[innerPos.x][innerPos.y].bottom = info.bottom;
+			}
+			if (typeof info.left != 'undefined') {
+				if ((data[innerPos.x][innerPos.y].left & MASK.known) <= 1 && info.left == TYPE_INDEX.wall) verticalWalls++;
+				if (info.left > data[innerPos.x][innerPos.y].left) data[innerPos.x][innerPos.y].left = info.left;
+			}
+			if (typeof info.center != 'undefined') {
+				if ((data[innerPos.x][innerPos.y].center & MASK.type) == 0) cells++;
+				if ((data[innerPos.x][innerPos.y].center & MASK.known) == 0 && (info.center & (MASK.known | MASK.type)) == TYPE_INDEX.passable) this.keyPossibilityCells++;
+				else if ((data[innerPos.x][innerPos.y].center & (MASK.known | MASK.type)) == TYPE_INDEX.passable && info.center == TYPE_INDEX.space) this.keyPossibilityCells--;
+				if (info.center > data[innerPos.x][innerPos.y].center) data[innerPos.x][innerPos.y].center = info.center;
+			}
 
-			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.key) > -1) {
+			if (info.center == TYPE_INDEX.key) {
 				this.keyFound(pos);
 			}
 			if ([info.top, info.right, info.bottom, info.left, info.center].indexOf(TYPE_INDEX.exit) > -1 && this.exitPos == null) {
 				this.exitFound(pos);
 			}
-			this.updateForDraw.push(data[innerPos.x][innerPos.y]);
+			if(mapVisual != null) this.updateForDraw.push(data[innerPos.x][innerPos.y]);
 		}
 
 		this.getCell = function (pos) {
@@ -234,6 +265,7 @@ algorithmHolder.putInstance(1, function () {
 				for (var j = 0; j < height; j++) {
 					data[i][j].step = null;
 					data[i][j].zone = null;
+					data[i][j].probability = null;
 				}
 			}
 		}
@@ -288,13 +320,13 @@ algorithmHolder.putInstance(1, function () {
 				var rightCell = this.getRealCell({x: current.x + 1, y: current.y});
 				var bottomCell = this.getRealCell({x: current.x, y: current.y + 1});
 				var leftCell = this.getRealCell({x: current.x - 1, y: current.y});
-				if ((current.top & MASK.type) == 0 && topCell && current.step == topCell.step + 1) {
+				if ((current.top & MASK.type) == 0 && topCell && topCell.step != null && current.step == topCell.step + 1) {
 					path.push(topCell);
-				} else if ((current.right & MASK.type) == 0 && rightCell && current.step == rightCell.step + 1) {
+				} else if ((current.right & MASK.type) == 0 && rightCell && rightCell.step != null && current.step == rightCell.step + 1) {
 					path.push(rightCell);
-				} else if ((current.bottom & MASK.type) == 0 && bottomCell && current.step == bottomCell.step + 1) {
+				} else if ((current.bottom & MASK.type) == 0 && bottomCell && bottomCell.step != null && current.step == bottomCell.step + 1) {
 					path.push(bottomCell);
-				} else if ((current.left & MASK.type) == 0 && leftCell && current.step == leftCell.step + 1) {
+				} else if ((current.left & MASK.type) == 0 && leftCell && leftCell.step != null && current.step == leftCell.step + 1) {
 					path.push(leftCell);
 				}
 			}
@@ -302,7 +334,8 @@ algorithmHolder.putInstance(1, function () {
 			return path;
 		}
 
-		this.findShortestPath = function (startCell, endCell) { //Алгоритм Дейкстры
+		this.findShortestPath = function (startCell, endCell, reliability) { //Алгоритм Дейкстры +
+			if (typeof reliability == "undefined") reliability = 0.4;
 			this.resetField();
 			startCell.step = 0;
 			var front = [startCell];
@@ -315,20 +348,29 @@ algorithmHolder.putInstance(1, function () {
 
 				if ((current.top & MASK.type) == 0 && topCell && (topCell.center & MASK.type) == 0 && (topCell.step == null || current.step + 1 < topCell.step)) {
 					topCell.step = current.step + 1;
-					front.push(topCell);
+					if (current.probability > 0) topCell.probability = current.probability * this.getHorizontalProbability();
+					else if ((topCell.center & MASK.known) == 0) topCell.probability = this.getHorizontalProbability();
+					if (topCell.probability == null || topCell.probability >= reliability) front.push(topCell);
 				}
 				if ((current.right & MASK.type) == 0 && rightCell && (rightCell.center & MASK.type) == 0 && (rightCell.step == null || current.step + 1 < rightCell.step)) {
 					rightCell.step = current.step + 1;
-					front.push(rightCell);
+					if (current.probability > 0) rightCell.probability = current.probability * this.getVerticalProbability();
+					else if ((rightCell.center & MASK.known) == 0) rightCell.probability = this.getVerticalProbability();
+					if (rightCell.probability == null || rightCell.probability >= reliability) front.push(rightCell);
 				}
 				if ((current.bottom & MASK.type) == 0 && bottomCell && (bottomCell.center & MASK.type) == 0 && (bottomCell.step == null || current.step + 1 < bottomCell.step)) {
 					bottomCell.step = current.step + 1;
-					front.push(bottomCell);
+					if (current.probability > 0) bottomCell.probability = current.probability * this.getHorizontalProbability();
+					else if ((bottomCell.center & MASK.known) == 0) bottomCell.probability = this.getHorizontalProbability();
+					if (bottomCell.probability == null || bottomCell.probability >= reliability) front.push(bottomCell);
 				}
 				if ((current.left & MASK.type) == 0 && leftCell && (leftCell.center & MASK.type) == 0 && (leftCell.step == null || current.step + 1 < leftCell.step)) {
 					leftCell.step = current.step + 1;
-					front.push(leftCell);
+					if (current.probability > 0) leftCell.probability = current.probability * this.getVerticalProbability();
+					else if ((leftCell.center & MASK.known) == 0) leftCell.probability = this.getVerticalProbability();
+					if (leftCell.probability == null || leftCell.probability >= reliability) front.push(leftCell);
 				}
+
 				if (((current.top & MASK.type) == 0 && topCell == endCell)
 					|| ((current.right & MASK.type) == 0 && rightCell == endCell)
 					|| ((current.bottom & MASK.type) == 0 && bottomCell == endCell)
@@ -338,15 +380,17 @@ algorithmHolder.putInstance(1, function () {
 				}
 			}
 
+			if(front.length == 0) return false;
 			return this.restorePath(endCell);
 		}
 
-		this.findNearestGoal = function (startCell, randomLevel, maxLoss) { //Алгоритм Дейкстры
+		this.findNearestUnexplored = function (startCell, reliability, randomLevel, maxLoss) { //Алгоритм Дейкстры +
+			if (typeof reliability == "undefined") reliability = 0.4;
 			if (typeof randomLevel == "undefined") randomLevel = 3;
 			if (typeof maxLoss == "undefined") maxLoss = 1.07; // 7%
 			this.resetField();
 			var zone = null;
-			if (this.keyPos != null) {
+			if (this.keyPos != null || this.exitPos == null) {
 				this.findZones();
 				zone = 0;
 			}
@@ -363,31 +407,39 @@ algorithmHolder.putInstance(1, function () {
 
 				if ((current.top & MASK.type) == 0 && topCell && (topCell.step == null || current.step + 1 < topCell.step)) {
 					topCell.step = current.step + 1;
+					if (current.probability > 0) topCell.probability = current.probability * this.getHorizontalProbability();
+					else if ((topCell.center & MASK.known) == 0) topCell.probability = this.getHorizontalProbability();
 					if ((current.top & MASK.known) == 0 && (topCell.center & MASK.known) == 0 && topCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
-					} else front.push(topCell);
+					} else if (topCell.probability == null || topCell.probability >= reliability) front.push(topCell);
 				}
 				if ((current.right & MASK.type) == 0 && rightCell && (rightCell.step == null || current.step + 1 < rightCell.step)) {
 					rightCell.step = current.step + 1;
+					if (current.probability > 0) rightCell.probability = current.probability * this.getVerticalProbability();
+					else if ((rightCell.center & MASK.known) == 0) rightCell.probability = this.getVerticalProbability();
 					if ((current.right & MASK.known) == 0 && (rightCell.center & MASK.known) == 0 && rightCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
-					} else front.push(rightCell);
+					} else if (rightCell.probability == null || rightCell.probability >= reliability) front.push(rightCell);
 				}
 				if ((current.bottom & MASK.type) == 0 && bottomCell && (bottomCell.step == null || current.step + 1 < bottomCell.step)) {
 					bottomCell.step = current.step + 1;
+					if (current.probability > 0) bottomCell.probability = current.probability * this.getHorizontalProbability();
+					else if ((bottomCell.center & MASK.known) == 0) bottomCell.probability = this.getHorizontalProbability();
 					if ((current.bottom & MASK.known) == 0 && (bottomCell.center & MASK.known) == 0 && bottomCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
-					} else front.push(bottomCell);
+					} else if (bottomCell.probability == null || bottomCell.probability >= reliability) front.push(bottomCell);
 				}
 				if ((current.left & MASK.type) == 0 && leftCell && (leftCell.step == null || current.step + 1 < leftCell.step)) {
 					leftCell.step = current.step + 1;
+					if (current.probability > 0) leftCell.probability = current.probability * this.getVerticalProbability();
+					else if ((leftCell.center & MASK.known) == 0) leftCell.probability = this.getVerticalProbability();
 					if ((current.left & MASK.known) == 0 && (leftCell.center & MASK.known) == 0 && leftCell.zone == zone) {
 						variants.push(current);
 						lastStep = current.step + 1;
-					} else front.push(leftCell);
+					} else if (leftCell.probability == null || leftCell.probability >= reliability) front.push(leftCell);
 				}
 				if (variants.length >= randomLevel || lastStep * maxLoss < current.step) {
 					break;
@@ -398,12 +450,11 @@ algorithmHolder.putInstance(1, function () {
 			return this.restorePath(variants[Math.floor(Math.random() * variants.length)]);
 		}
 
-
 		//Start Map code
 		for (var i = 0; i < width; i++) {
 			data[i] = [];
 			for (var j = 0; j < height; j++) {
-				data[i][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, i,j);
+				data[i][j] = new Cell(TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, TYPE_INDEX.unknown, i,j);
 			}
 		}
 		this.update({x: 0, y: 0}, {center: TYPE_INDEX.passable});
@@ -444,18 +495,8 @@ algorithmHolder.putInstance(1, function () {
 		var dir = new Direction(DIRECTION.top);
 		var queueCMD = [];
 		var api = null;
-
-		var behavior = {
-			discovery: function () {
-
-			},
-			going: function () {
-
-			},
-			wade: function () {
-
-			}
-		}
+		var hasExit = false;
+		var hasKey = false;
 
 		this.getQueueCommands = function() {
 			return queueCMD;
@@ -607,6 +648,8 @@ algorithmHolder.putInstance(1, function () {
 		}
 
 		this.toPath = function (path) {
+			if (path == false) return;
+
 			var current = this.getCurrentCell();
 			if (current == path[0]) path.shift();
 			var prevDir = undefined;
@@ -644,6 +687,7 @@ algorithmHolder.putInstance(1, function () {
 					info[dir.right] = TYPE_INDEX[result.right];
 					info[dir.left] = TYPE_INDEX[result.left];
 					map.update(pos, info);
+					if (!hasExit && map.exitPos != null) hasExit = true;
 
 					info = {};
 					tmpPos = pos.nextPos(dir.getDirection(dir.forward));
@@ -693,6 +737,7 @@ algorithmHolder.putInstance(1, function () {
 						map.increment(pos);
 					} else {
 						if (queueCMD.length > 0) queueCMD = [];
+						if (this.getCurrentCell()[dir.forward] == TYPE_INDEX.exit) map.exitLocked();
 						info = {};
 						info[dir.forward] = TYPE_INDEX.barrier;
 						map.update(pos, info);
@@ -702,46 +747,61 @@ algorithmHolder.putInstance(1, function () {
 					}
 					break;
 			}
+			if (!hasKey && map.keyPos != null && map.getCell(map.keyPos).counter > 0) hasKey = true;
 			queueCMD.shift();
+		}
+
+		this.generateMicroDecision = function(fromCell, toCell, subdir) {
+			if (fromCell[subdir] == TYPE_INDEX.unknown && toCell.center == TYPE_INDEX.unknown
+				|| ((hasKey || map.keyPossibilityCells > 0) && fromCell[subdir] == TYPE_INDEX.exit)
+				|| (!hasKey && fromCell[subdir] == TYPE_INDEX.key))
+			{
+				return true
+			}
+			return false;
 		}
 
 		this.generateDecision = function () {
 			if (queueCMD.length > 0) return;
 
 			var cell = this.getCurrentCell();
+			var path = false;
 			var c = +(cell[dir.forward] == TYPE_INDEX.unknown) + (cell[dir.right] == TYPE_INDEX.unknown) + (cell[dir.left] == TYPE_INDEX.unknown);
-			if (map.exitPos != null && map.keyPos != null && map.getCell(map.keyPos).counter != 0 && map.getCell(map.exitPos) != cell) {
-				var path = map.findShortestPath(cell, map.getCell(map.exitPos));
-				if (path != false) {
-					this.toPath(path);
-				}
+			if (hasExit && map.keyPossibilityCells > map.getAverageSize()) {
+				path = map.findShortestPath(cell, map.getCell(map.exitPos));
+			}
+			if (hasExit && (hasKey || map.keyPossibilityCells > path.length*1.67) && map.getCell(map.exitPos) != cell) {
+				if (path == false) path = map.findShortestPath(cell, map.getCell(map.exitPos));
+				this.toPath(path);
 			} else if (c > 1 || (c >= 1 && map.isEdge(pos))) {
 				this.toScan();
-			} else if (cell[dir.forward] == TYPE_INDEX.unknown || (map.exitPos != null && map.keyPos != null && cell[dir.forward] == TYPE_INDEX.exit) || (map.keyPos != null && cell[dir.forward] == TYPE_INDEX.key)) {
+			} else if (this.generateMicroDecision(cell, map.getCell(pos.nextPos(DIRECTION[dir.forward])), dir.forward)) {
 				this.toMove();
-			} else if (cell[dir.right] == TYPE_INDEX.unknown || (map.exitPos != null && map.keyPos != null && cell[dir.right] == TYPE_INDEX.exit) || (map.keyPos != null && cell[dir.right] == TYPE_INDEX.key)) {
+			} else if (this.generateMicroDecision(cell, map.getCell(pos.nextPos(DIRECTION[dir.right])), dir.right)) {
 				this.toRight();
 				this.toMove();
-			} else if (cell[dir.left] == TYPE_INDEX.unknown || (map.exitPos != null && map.keyPos != null && cell[dir.left] == TYPE_INDEX.exit) || (map.keyPos != null && cell[dir.left] == TYPE_INDEX.key)) {
+			} else if (this.generateMicroDecision(cell, map.getCell(pos.nextPos(DIRECTION[dir.left])), dir.left)) {
 				this.toLeft();
 				this.toMove();
-			} else if (cell[dir.backward] == TYPE_INDEX.unknown || (map.exitPos != null && map.keyPos != null && cell[dir.backward] == TYPE_INDEX.exit) || (map.keyPos != null && cell[dir.backward] == TYPE_INDEX.key)) {
+			} else if (this.generateMicroDecision(cell, map.getCell(pos.nextPos(DIRECTION[dir.backward])), dir.backward)) {
 				this.toRight();
 				this.toRight();
 				this.toMove();
 			} else if ((cell[dir.forward] & MASK.type) == 0 && this.getCell(DIRECTION[dir.forward]).counter == 0) {
 				this.toMove();
-			} else if (map.exitPos == null || map.keyPos == null) {
-				var path = map.findNearestGoal(cell);
-				if (path != false) {
-					this.toPath(path);
-				}
+			} else if (!hasExit || !hasKey) {
+				path = map.findNearestUnexplored(cell);
+				if (path == false) path = map.findShortestPath(cell, map.getCell(map.exitPos));
+				this.toPath(path);
+			} else {
+				debugger; //что-то неверно
 			}
 		}
 	}
 
-	/**
-	 * Component of ROBOMAZE that is responsible for drawing
+	/** =========================================
+	 * Component that is responsible for drawing
+	 *  =========================================
 	 */
 	var mapVisualizer = function (map) {
 		var CELL_SIZE = 24;
@@ -761,7 +821,6 @@ algorithmHolder.putInstance(1, function () {
 				}
 			}
 		}
-		this.createMap();
 
 		this.resizeMap = function () {
 			mapW = map.getWidth();
@@ -774,15 +833,11 @@ algorithmHolder.putInstance(1, function () {
 			if (mapW != map.getWidth() || mapH != map.getHeight()) {
 				this.resizeMap();
 			}
-//			var colors = [];
-//			for (i in map.getZones()){
-//				colors[i] = Math.floor(Math.random()*16777215).toString(16);
-//			}
 
 			var innerPos = map.getInnerPos(robot.getPosition());
 			for (var i = 0; i < mapH; i++) {
 				for (var j = 0; j < mapW; j++) {
-					var cell = map.getRealCell({x: j, y: i})
+					var cell = map.getRealCell({x: j, y: i});
 					var div = document.getElementById("cell_" + i + "_" + j);
 					div.className = "cell"
 						+ " top-" + TYPE_VALUE[cell.top]
@@ -840,33 +895,60 @@ algorithmHolder.putInstance(1, function () {
 			}
 			map.updateForDraw = [];
 		}
+
+		var styles = document.createElement("STYLE");
+		styles.id = "styles-for-map";
+		styles.type = 'text/css';
+		var css = "#map{\noverflow: hidden;\nfont-size:10px;\nline-height:20px;\ntext-align:center;\n}\n\.cell{\nfloat: left;\nwidth: 20px;\nheight: 20px;\nbackground-color: #aaa;\nborder: 2px solid #aaa;\n}\n\n.top-wall{border-top-color: #000;}\n.right-wall{border-right-color: #000;}\n.left-wall{border-left-color: #000;}\n.bottom-wall{border-bottom-color: #000;}\n\n\.top-barrier{border-top: 2px dotted #000;}\n.right-barrier{border-right: 2px dotted #000;}\n.left-barrier{border-left: 2px dotted #000;}\n.bottom-barrier{border-bottom: 2px dotted #000;}\n\n\.top-space{border-top-color: #fff;}\n.right-space{border-right-color: #fff;}\n.left-space{border-left-color: #fff;}\n.bottom-space{border-bottom-color: #fff;}\n\n\.top-exit{border-top-color: #f00;}\n.right-exit{border-right-color: #f00;}\n.left-exit{border-left-color: #f00;}\n.bottom-exit{border-bottom-color: #f00;}\n\n\.top-key{border-top-color: #0f0;}\n.right-key{border-right-color: #0f0;}\n.left-key{border-left-color: #0f0;}\n.bottom-key{border-bottom-color: #0f0;}\n\n\.space{background-color: #fff;}\n.passable{background-color: #eee;}\n.exit{background-color: #f00;}\n.key{background-color: #0f0;}\n.pos{background-color: #f00;}\n.way{background-color: #ff0 !important;}\n\n";
+		for(var i=0; i<100; i++){
+			css += (".zone"+i+" { background-color: #"+Math.floor(Math.random()*16777215).toString(16)+"; }\n");
+		}
+		if (styles.styleSheet){
+			styles.styleSheet.cssText = css;
+		} else {
+			styles.appendChild(document.createTextNode(css));
+		}
+		document.head.appendChild(styles);
+		this.createMap();
 	};
 
-	var robot = new Robot()
+	var robot = new Robot();
 	var movesLog = ['Start'];
 	var turn = 0;
-	var mapVisual;
+	var mapVisual = null;
 	var HOW = function (api) {
-		try {
-
 			if (turn == 0) {
 				robot.setApi(api);
-				mapVisual = new mapVisualizer(robot.getMap());
 			}
 			turn++;
 			robot.setResult(api.result);
-			if(robot.getMap().keyPos!=null && turn%50 == 0) mapVisual.drawMap(robot);
-			else mapVisual.updateMap(robot);
 			robot.generateDecision();
 
 			return movesLog[turn] = robot.getCommand();
-		} catch (e) {
-			debugger;
+	}
+
+	var HOWandDraw = function (api) {
+		if (turn == 0) {
+			robot.setApi(api);
+			mapVisual = new mapVisualizer(robot.getMap());
+			var freq = parseInt(document.getElementById("map").dataset.freq);
+			if (freq == undefined) freq=100;
 		}
+		turn++;
+		robot.setResult(api.result);
+		if(turn%freq == 0) mapVisual.drawMap(robot);
+		else mapVisual.updateMap(robot);
+		robot.generateDecision();
+
+		return movesLog[turn] = robot.getCommand();
 	}
 
 	return {
 		name: 'Hierarch of ways',
-		roboFunc: HOW
+		roboFunc: (function() {
+			var mapDiv = document.getElementById("map");
+			if(mapDiv == null) return HOW;
+			else return HOWandDraw;
+		}())
 	};
 }());

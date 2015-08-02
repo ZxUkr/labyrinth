@@ -3,75 +3,16 @@
 <head>
     <title>JavaScript Challenge</title>
     <script type="application/javascript" src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
-    <script type="application/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>
+    <!--<script type="application/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js"></script>-->
+    <script type="application/javascript" src="raphael-min.js"></script>
     <script type="application/javascript" src="core.js"></script>
-    <script type="application/javascript" src="vpetlya.js"></script>
-    <style>
-        #map{
-            overflow: hidden;
-            font-size:10px;
-            line-height:20px;
-            text-align:center;
-        }
-        .cell{
-            float: left;
-            width: 20px;
-            height: 20px;
-            background-color: #aaa;
-            border: 2px solid #aaa;
-        }
-
-        .top-wall{border-top-color: #000;}
-        .right-wall{border-right-color: #000;}
-        .left-wall{border-left-color: #000;}
-        .bottom-wall{border-bottom-color: #000;}
-
-        .top-barrier{border-top: 2px dotted #000;}
-        .right-barrier{border-right: 2px dotted #000;}
-        .left-barrier{border-left: 2px dotted #000;}
-        .bottom-barrier{border-bottom: 2px dotted #000;}
-
-        .top-space{border-top-color: #fff;}
-        .right-space{border-right-color: #fff;}
-        .left-space{border-left-color: #fff;}
-        .bottom-space{border-bottom-color: #fff;}
-
-        .top-exit{border-top-color: #f00;}
-        .right-exit{border-right-color: #f00;}
-        .left-exit{border-left-color: #f00;}
-        .bottom-exit{border-bottom-color: #f00;}
-
-        .top-key{border-top-color: #0f0;}
-        .right-key{border-right-color: #0f0;}
-        .left-key{border-left-color: #0f0;}
-        .bottom-key{border-bottom-color: #0f0;}
-
-        .space{
-            background-color: #fff;
-        }
-        .passable{
-            background-color: #eee;
-        }
-        .exit{
-            background-color: #f00;
-        }
-        .key{
-            background-color: #0f0;
-        }
-        .pos{
-            background-color: #f00;
-        }
-        .way{
-            background-color: #ff0;
-        }
-    </style>
 </head>
 <body>
 <h1>JavaScript Challenge</h1>
 
 <table>
     <tr>
-        <td><div id="map"></div></td>
+        <td><div id="map" data-freq="50"></div></td>
         <td><div id="maze"></div></td>
         <td>
             <h2>Table of results:</h2>
@@ -79,11 +20,6 @@
         </td>
     </tr>
 </table>
-<script>
-    var sheet = document.styleSheets[0];
-    for(var i=0; i<100; i++){
-        sheet.insertRule(".zone"+i+" { background-color: #"+Math.floor(Math.random()*16777215).toString(16)+"; }", sheet.cssRules.length);
-    }
-</script>
+<script type="application/javascript" src="vpetlya.js"></script>
 </body>
 </html>
